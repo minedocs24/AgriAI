@@ -1,0 +1,109 @@
+// Resto dello schema - Keywords, Embeddings, Feedback e GDPR
+
+// Keywords Table
+model Keyword {
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  keyword          String  @unique @db.VarChar(100)
+  normalized       String  @db.VarChar(100)
+  frequency        Int     @default(1)
+  categoryAffinity Json    @default("{}") @map("category_affinity") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  documents  DocumentKeyword[]
+  categories CategoryKeyword[]
+
+  @@index([normalized], map: "idx_keywords_normalized")
+  @@index([frequency], map: "idx_keywords_frequency")
+  @@map("keywords")
+}
+
+// Document Keywords Junction Table
+model DocumentKeyword {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String            @map("document_id") @db.Uuid
+  keywordId        String            @map("keyword_id") @db.Uuid
+  relevanceScore   Decimal           @default(1.0) @map("relevance_score") @db.Decimal(4, 3)
+  extractionMethod ExtractionMethod  @default(MANUAL) @map("extraction_method")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  keyword  Keyword  @relation(fields: [keywordId], references: [id])
+
+  @@unique([documentId, keywordId])
+  @@index([documentId, relevanceScore], map: "idx_document_keywords_document")
+  @@index([keywordId, relevanceScore], map: "idx_document_keywords_keyword")
+  @@map("document_keywords")
+}
+
+// Category Keywords Junction Table
+model CategoryKeyword {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  keywordId  String   @map("keyword_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  keyword  Keyword  @relation(fields: [keywordId], references: [id])
+
+  @@unique([categoryId, keywordId])
+  @@map("category_keywords")
+}
+
+// Document Analysis Table (AI Analysis)
+model DocumentAnalysis {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId           String   @unique @map("document_id") @db.Uuid
+  summary              String?
+  extractedEntities    Json     @default("[]") @map("extracted_entities") @db.JsonB
+  topics               Json     @default("[]") @db.JsonB
+  readabilityScore     Decimal? @map("readability_score") @db.Decimal(4, 2)
+  complexityScore      Decimal? @map("complexity_score") @db.Decimal(4, 2)
+  confidence           Decimal? @db.Decimal(4, 3)
+  languageConfidence   Decimal? @map("language_confidence") @db.Decimal(4, 3)
+  processingModel      String?  @map("processing_model") @db.VarChar(100)
+  processingTimeMs     Int?     @map("processing_time_ms")
+  tokenCount           Int?     @map("token_count")
+  correlations         Json     @default("[]") @db.JsonB
+  qualityMetrics       Json     @default("{}") @map("quality_metrics") @db.JsonB
+  ragOptimization      Json     @default("{}") @map("rag_optimization") @db.JsonB
+  retrievalKeywords    String[] @map("retrieval_keywords")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([confidence], map: "idx_document_analysis_confidence")
+  @@index([readabilityScore, complexityScore], map: "idx_document_analysis_quality")
+  @@map("document_analysis")
+}
+
+// Document Embeddings Table (Vector Storage)
+model DocumentEmbedding {
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String  @map("document_id") @db.Uuid
+  chunkIndex       Int     @default(0) @map("chunk_index")
+  chunkText        String  @map("chunk_text")
+  chunkStartChar   Int?    @map("chunk_start_char")
+  chunkEndChar     Int?    @map("chunk_end_char")
+  embeddingModel   String  @map("embedding_model") @db.VarChar(100)
+  embedding        Unsupported("vector(1536)")?
+  embeddingVersion Int     @default(1) @map("embedding_version")
+  tokenCount       Int?    @map("token_count")
+  chunkMetadata    Json    @default("{}") @map("chunk_metadata") @db.JsonB
+  retrievalScore   Decimal? @map("retrieval_score") @db.Decimal(5, 4)
+  contextWindow    Int?    @map("context_window")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex, embeddingModel])
+  @@index([documentId, chunkIndex], map: "idx_document_embeddings_document")
+  @@index([embeddingModel, embeddingVersion], map: "idx_document_embeddings_model")
+  @@map("document_embeddings")
+}

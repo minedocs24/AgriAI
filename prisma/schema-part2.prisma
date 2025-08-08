@@ -1,0 +1,60 @@
+// Conversation, Messages e Document models per completare lo schema
+
+// Conversations Table
+model Conversation {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  title         String?            @db.VarChar(255)
+  status        ConversationStatus @default(ACTIVE)
+  context       Json               @default("{}") @db.JsonB
+  metadata      Json               @default("{}") @db.JsonB
+  messageCount  Int                @default(0) @map("message_count")
+  totalTokens   Int                @default(0) @map("total_tokens")
+  avgConfidence Decimal?           @map("avg_confidence") @db.Decimal(4, 3)
+  lastMessageAt DateTime?          @map("last_message_at") @db.Timestamptz
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt    DateTime?          @map("archived_at") @db.Timestamptz
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+  feedback ConversationFeedback[]
+
+  @@index([userId, createdAt], map: "idx_conversations_user_created")
+  @@index([status, lastMessageAt], map: "idx_conversations_status")
+  @@index([userId, status], map: "idx_conversations_flagged", where: status == FLAGGED)
+  @@index([userId, lastMessageAt, status], map: "idx_conversations_user_activity", where: status == ACTIVE || status == FLAGGED)
+  @@map("conversations")
+}
+
+// Messages Table
+model Message {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId       String        @map("conversation_id") @db.Uuid
+  content              String
+  sender               MessageSender
+  messageType          MessageType   @default(TEXT) @map("message_type")
+  tokens               Int?
+  processingTimeMs     Int?          @map("processing_time_ms")
+  modelUsed            String?       @map("model_used") @db.VarChar(100)
+  confidence           Decimal?      @db.Decimal(4, 3)
+  intentClassification Json?         @map("intent_classification") @db.JsonB
+  languageDetected     String?       @map("language_detected") @db.VarChar(10)
+  sentimentScore       Decimal?      @map("sentiment_score") @db.Decimal(3, 2)
+  metadata             Json          @default("{}") @db.JsonB
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  editedAt             DateTime?     @map("edited_at") @db.Timestamptz
+  deletedAt            DateTime?     @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  conversation Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources      MessageSource[]
+  feedback     MessageFeedback[]
+
+  @@index([conversationId, createdAt], map: "idx_messages_conversation")
+  @@index([sender, messageType], map: "idx_messages_sender_type", where: deletedAt == null)
+  @@index([confidence], map: "idx_messages_confidence", where: sender == AI && deletedAt == null)
+  @@index([conversationId, confidence, createdAt], map: "idx_messages_conversation_confidence", where: sender == AI && deletedAt == null)
+  @@map("messages")
+}

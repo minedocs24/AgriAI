@@ -1,0 +1,664 @@
+// Prisma Schema per AgriAI - Piattaforma Agricola con RAG
+// Versione: 1.0.0
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuidOssp(map: "uuid-ossp"), vector]
+}
+
+// ===== ENUMS =====
+
+enum UserType {
+  PUBLIC
+  MEMBER
+  ADMIN
+  SUPER_ADMIN
+
+  @@map("user_type_enum")
+}
+
+enum SubscriptionTier {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+
+  @@map("subscription_tier_enum")
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  FLAGGED
+  DELETED
+
+  @@map("conversation_status_enum")
+}
+
+enum MessageSender {
+  USER
+  AI
+  SYSTEM
+
+  @@map("message_sender_enum")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  SYSTEM_NOTIFICATION
+
+  @@map("message_type_enum")
+}
+
+enum DocumentType {
+  FILE
+  URL
+  TEXT
+
+  @@map("document_type_enum")
+}
+
+enum DocumentStatus {
+  DRAFT
+  PROCESSING
+  PUBLISHED
+  ARCHIVED
+  FAILED
+
+  @@map("document_status_enum")
+}
+
+enum AccessLevel {
+  PUBLIC
+  MEMBER
+  ADMIN
+
+  @@map("access_level_enum")
+}
+
+enum ExtractionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("extraction_status_enum")
+}
+
+enum IndexingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("indexing_status_enum")
+}
+
+enum ExtractionMethod {
+  MANUAL
+  AUTOMATIC
+  AI_GENERATED
+
+  @@map("extraction_method_enum")
+}
+
+enum FeedbackType {
+  POSITIVE
+  NEGATIVE
+  REPORT
+
+  @@map("feedback_type_enum")
+}
+
+enum ConsentType {
+  NECESSARY
+  ANALYTICS
+  MARKETING
+  PERSONALIZATION
+  DATA_SHARING
+
+  @@map("consent_type_enum")
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTERESTS
+
+  @@map("legal_basis_enum")
+}
+
+enum DataRequestType {
+  EXPORT
+  DELETION
+  PORTABILITY
+  RECTIFICATION
+
+  @@map("data_request_type_enum")
+}
+
+enum RequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+  EXPIRED
+
+  @@map("request_status_enum")
+}
+
+// ===== CORE MODELS =====
+
+// Organizations Table
+model Organization {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String           @db.VarChar(255)
+  slug                  String           @unique @db.VarChar(100)
+  description           String?
+  websiteUrl            String?          @map("website_url")
+  logoUrl               String?          @map("logo_url")
+  address               Json?            @db.JsonB
+  contactInfo           Json?            @map("contact_info") @db.JsonB
+  subscriptionTier      SubscriptionTier @default(BASIC) @map("subscription_tier")
+  subscriptionExpiresAt DateTime?        @map("subscription_expires_at") @db.Timestamptz
+  maxUsers              Int              @default(10) @map("max_users")
+  maxDocuments          Int              @default(100) @map("max_documents")
+  settings              Json             @default("{}") @db.JsonB
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt             DateTime?        @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  users User[]
+
+  @@index([slug], map: "idx_organizations_slug")
+  @@index([subscriptionTier, subscriptionExpiresAt], map: "idx_organizations_subscription")
+  @@map("organizations")
+}
+
+// Users Table
+model User {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String    @unique @db.VarChar(255)
+  passwordHash           String    @map("password_hash")
+  firstName              String    @map("first_name") @db.VarChar(100)
+  lastName               String    @map("last_name") @db.VarChar(100)
+  userType               UserType  @default(PUBLIC) @map("user_type")
+  organizationId         String?   @map("organization_id") @db.Uuid
+  emailVerified          Boolean   @default(false) @map("email_verified")
+  emailVerificationToken String?   @map("email_verification_token")
+  passwordResetToken     String?   @map("password_reset_token")
+  passwordResetExpires   DateTime? @map("password_reset_expires") @db.Timestamptz
+  lastLoginAt            DateTime? @map("last_login_at") @db.Timestamptz
+  lastActiveAt           DateTime? @map("last_active_at") @db.Timestamptz
+  loginCount             Int       @default(0) @map("login_count")
+  failedLoginAttempts    Int       @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime? @map("locked_until") @db.Timestamptz
+  profileImageUrl        String?   @map("profile_image_url")
+  bio                    String?
+  location               String?   @db.VarChar(255)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  preferences        UserPreferences?
+  sessions           UserSession[]
+  conversations      Conversation[]
+  documents          Document[]
+  messageFeedback    MessageFeedback[]
+  consents           UserConsent[]
+  dataExportRequests DataExportRequest[]
+  auditLogs          AuditLog[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([userType, organizationId], map: "idx_users_type_org")
+  @@index([lastActiveAt], map: "idx_users_last_active")
+  @@index([organizationId], map: "idx_users_organization")
+  @@index([email], map: "idx_users_active_email")
+  @@map("users")
+}
+
+// User Preferences Table
+model UserPreferences {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String   @unique @map("user_id") @db.Uuid
+  language                 String   @default("it") @db.VarChar(10)
+  timezone                 String   @default("Europe/Rome") @db.VarChar(50)
+  notifications            Json     @default("{\"email\": true, \"push\": true, \"sms\": false}") @db.JsonB
+  aiSettings               Json     @default("{\"response_length\": \"standard\", \"technical_level\": \"intermediate\"}") @map("ai_settings") @db.JsonB
+  uiPreferences            Json     @default("{\"theme\": \"light\", \"density\": \"comfortable\"}") @map("ui_preferences") @db.JsonB
+  privacySettings          Json     @default("{\"data_sharing\": false, \"analytics\": true}") @map("privacy_settings") @db.JsonB
+  communicationPreferences Json     @default("{\"newsletter\": true, \"updates\": true}") @map("communication_preferences") @db.JsonB
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// User Sessions Table
+model UserSession {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  sessionToken   String    @unique @map("session_token")
+  refreshToken   String?   @unique @map("refresh_token")
+  deviceInfo     Json?     @map("device_info") @db.JsonB
+  ipAddress      String?   @map("ip_address") @db.Inet
+  locationInfo   Json?     @map("location_info") @db.JsonB
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  lastAccessedAt DateTime  @default(now()) @map("last_accessed_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken], map: "idx_user_sessions_token")
+  @@index([userId, expiresAt], map: "idx_user_sessions_user")
+  @@index([expiresAt], map: "idx_user_sessions_cleanup")
+  @@index([sessionToken, userId], map: "idx_sessions_active")
+  @@map("user_sessions")
+}
+
+// Categories Table
+model Category {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String      @unique @db.VarChar(100)
+  slug        String      @unique @db.VarChar(100)
+  description String?
+  parentId    String?     @map("parent_id") @db.Uuid
+  icon        String?     @db.VarChar(50)
+  color       String?     @db.VarChar(7)
+  sortOrder   Int         @default(0) @map("sort_order")
+  isActive    Boolean     @default(true) @map("is_active")
+  accessLevel AccessLevel @default(PUBLIC) @map("access_level")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  parent    Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[]        @relation("CategoryHierarchy")
+  documents Document[]
+  keywords  CategoryKeyword[]
+
+  @@index([slug], map: "idx_categories_slug")
+  @@index([parentId, sortOrder], map: "idx_categories_parent")
+  @@index([accessLevel, isActive], map: "idx_categories_access")
+  @@map("categories")
+}
+
+// Conversations Table
+model Conversation {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  title         String?            @db.VarChar(255)
+  status        ConversationStatus @default(ACTIVE)
+  context       Json               @default("{}") @db.JsonB
+  metadata      Json               @default("{}") @db.JsonB
+  messageCount  Int                @default(0) @map("message_count")
+  totalTokens   Int                @default(0) @map("total_tokens")
+  avgConfidence Decimal?           @map("avg_confidence") @db.Decimal(4, 3)
+  lastMessageAt DateTime?          @map("last_message_at") @db.Timestamptz
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt    DateTime?          @map("archived_at") @db.Timestamptz
+
+  // Relations
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+  feedback ConversationFeedback[]
+
+  @@index([userId, createdAt], map: "idx_conversations_user_created")
+  @@index([status, lastMessageAt], map: "idx_conversations_status")
+  @@index([userId, status], map: "idx_conversations_flagged")
+  @@index([userId, lastMessageAt, status], map: "idx_conversations_user_activity")
+  @@map("conversations")
+}
+
+// Messages Table
+model Message {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId       String        @map("conversation_id") @db.Uuid
+  content              String
+  sender               MessageSender
+  messageType          MessageType   @default(TEXT) @map("message_type")
+  tokens               Int?
+  processingTimeMs     Int?          @map("processing_time_ms")
+  modelUsed            String?       @map("model_used") @db.VarChar(100)
+  confidence           Decimal?      @db.Decimal(4, 3)
+  intentClassification Json?         @map("intent_classification") @db.JsonB
+  languageDetected     String?       @map("language_detected") @db.VarChar(10)
+  sentimentScore       Decimal?      @map("sentiment_score") @db.Decimal(3, 2)
+  metadata             Json          @default("{}") @db.JsonB
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  editedAt             DateTime?     @map("edited_at") @db.Timestamptz
+  deletedAt            DateTime?     @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources      MessageSource[]
+  feedback     MessageFeedback[]
+
+  @@index([conversationId, createdAt], map: "idx_messages_conversation")
+  @@index([sender, messageType], map: "idx_messages_sender_type")
+  @@index([confidence], map: "idx_messages_confidence")
+  @@index([conversationId, confidence, createdAt], map: "idx_messages_conversation_confidence")
+  @@map("messages")
+}
+
+// Documents Table
+model Document {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String           @db.VarChar(500)
+  description      String?
+  contentType      DocumentType     @map("content_type")
+  categoryId       String           @map("category_id") @db.Uuid
+  uploadedById     String           @map("uploaded_by") @db.Uuid
+  author           String?          @db.VarChar(255)
+  sourceUrl        String?          @map("source_url")
+  filePath         String?          @map("file_path")
+  fileSizeBytes    BigInt?          @map("file_size_bytes")
+  fileMimeType     String?          @map("file_mime_type") @db.VarChar(100)
+  language         String           @default("it") @db.VarChar(10)
+  status           DocumentStatus   @default(DRAFT)
+  accessLevel      AccessLevel      @default(PUBLIC) @map("access_level")
+  version          Int              @default(1)
+  checksumMd5      String?          @map("checksum_md5") @db.VarChar(32)
+  extractionStatus ExtractionStatus @default(PENDING) @map("extraction_status")
+  indexingStatus   IndexingStatus   @default(PENDING) @map("indexing_status")
+  contentExtracted String?          @map("content_extracted")
+  pageCount        Int?             @map("page_count")
+  wordCount        Int?             @map("word_count")
+  metadata         Json             @default("{}") @db.JsonB
+  processingLogs   Json             @default("[]") @map("processing_logs") @db.JsonB
+  publishedAt      DateTime?        @map("published_at") @db.Timestamptz
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime?        @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  category       Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  uploadedBy     User                @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  analysis       DocumentAnalysis?
+  embeddings     DocumentEmbedding[]
+  keywords       DocumentKeyword[]
+  messageSources MessageSource[]
+
+  @@index([categoryId, status, publishedAt], map: "idx_documents_category_status")
+  @@index([uploadedById, createdAt], map: "idx_documents_uploader")
+  @@index([status, extractionStatus, indexingStatus], map: "idx_documents_status")
+  @@index([accessLevel, status], map: "idx_documents_access")
+  @@index([categoryId, accessLevel, publishedAt], map: "idx_documents_category_access_published")
+  @@index([categoryId, publishedAt], map: "idx_documents_public_search")
+  @@index([categoryId, status, createdAt, uploadedById], map: "idx_documents_analytics")
+  @@map("documents")
+}
+
+// Message Sources Table (RAG sources)
+model MessageSource {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String   @map("message_id") @db.Uuid
+  documentId      String   @map("document_id") @db.Uuid
+  relevantSection String?  @map("relevant_section")
+  confidence      Decimal  @db.Decimal(4, 3)
+  chunkIndex      Int?     @map("chunk_index")
+  similarityScore Decimal? @map("similarity_score") @db.Decimal(8, 7)
+  citationText    String?  @map("citation_text")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  message  Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@index([messageId], map: "idx_message_sources_message")
+  @@index([documentId, confidence], map: "idx_message_sources_document")
+  @@index([confidence], map: "idx_message_sources_confidence")
+  @@map("message_sources")
+}
+
+// Keywords Table
+model Keyword {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  keyword          String   @unique @db.VarChar(100)
+  normalized       String   @db.VarChar(100)
+  frequency        Int      @default(1)
+  categoryAffinity Json     @default("{}") @map("category_affinity") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  documents  DocumentKeyword[]
+  categories CategoryKeyword[]
+
+  @@index([normalized], map: "idx_keywords_normalized")
+  @@index([frequency], map: "idx_keywords_frequency")
+  @@map("keywords")
+}
+
+// Document Keywords Junction Table
+model DocumentKeyword {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String           @map("document_id") @db.Uuid
+  keywordId        String           @map("keyword_id") @db.Uuid
+  relevanceScore   Decimal          @default(1.0) @map("relevance_score") @db.Decimal(4, 3)
+  extractionMethod ExtractionMethod @default(MANUAL) @map("extraction_method")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  keyword  Keyword  @relation(fields: [keywordId], references: [id])
+
+  @@unique([documentId, keywordId])
+  @@index([documentId, relevanceScore], map: "idx_document_keywords_document")
+  @@index([keywordId, relevanceScore], map: "idx_document_keywords_keyword")
+  @@map("document_keywords")
+}
+
+// Category Keywords Junction Table
+model CategoryKeyword {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  keywordId  String   @map("keyword_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  keyword  Keyword  @relation(fields: [keywordId], references: [id])
+
+  @@unique([categoryId, keywordId])
+  @@map("category_keywords")
+}
+
+// Document Analysis Table (AI Analysis)
+model DocumentAnalysis {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId         String   @unique @map("document_id") @db.Uuid
+  summary            String?
+  extractedEntities  Json     @default("[]") @map("extracted_entities") @db.JsonB
+  topics             Json     @default("[]") @db.JsonB
+  readabilityScore   Decimal? @map("readability_score") @db.Decimal(4, 2)
+  complexityScore    Decimal? @map("complexity_score") @db.Decimal(4, 2)
+  confidence         Decimal? @db.Decimal(4, 3)
+  languageConfidence Decimal? @map("language_confidence") @db.Decimal(4, 3)
+  processingModel    String?  @map("processing_model") @db.VarChar(100)
+  processingTimeMs   Int?     @map("processing_time_ms")
+  tokenCount         Int?     @map("token_count")
+  correlations       Json     @default("[]") @db.JsonB
+  qualityMetrics     Json     @default("{}") @map("quality_metrics") @db.JsonB
+  ragOptimization    Json     @default("{}") @map("rag_optimization") @db.JsonB
+  retrievalKeywords  String[] @map("retrieval_keywords")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([confidence], map: "idx_document_analysis_confidence")
+  @@index([readabilityScore, complexityScore], map: "idx_document_analysis_quality")
+  @@map("document_analysis")
+}
+
+// Document Embeddings Table (Vector Storage)
+model DocumentEmbedding {
+  id               String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String                       @map("document_id") @db.Uuid
+  chunkIndex       Int                          @default(0) @map("chunk_index")
+  chunkText        String                       @map("chunk_text")
+  chunkStartChar   Int?                         @map("chunk_start_char")
+  chunkEndChar     Int?                         @map("chunk_end_char")
+  embeddingModel   String                       @map("embedding_model") @db.VarChar(100)
+  embedding        Unsupported("vector(1536)")?
+  embeddingVersion Int                          @default(1) @map("embedding_version")
+  tokenCount       Int?                         @map("token_count")
+  chunkMetadata    Json                         @default("{}") @map("chunk_metadata") @db.JsonB
+  retrievalScore   Decimal?                     @map("retrieval_score") @db.Decimal(5, 4)
+  contextWindow    Int?                         @map("context_window")
+  createdAt        DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex, embeddingModel])
+  @@index([documentId, chunkIndex], map: "idx_document_embeddings_document")
+  @@index([embeddingModel, embeddingVersion], map: "idx_document_embeddings_model")
+  @@map("document_embeddings")
+}
+
+// Query Embeddings Table (RAG Analytics)
+model QueryEmbedding {
+  id                     String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  queryHash              String                       @unique @map("query_hash") @db.VarChar(64)
+  queryText              String                       @map("query_text")
+  embeddingModel         String                       @map("embedding_model") @db.VarChar(100)
+  embedding              Unsupported("vector(1536)")?
+  usageCount             Int                          @default(1) @map("usage_count")
+  avgConfidence          Decimal?                     @map("avg_confidence") @db.Decimal(4, 3)
+  avgRetrievalScore      Decimal?                     @map("avg_retrieval_score") @db.Decimal(4, 3)
+  successfulRagResponses Int                          @default(0) @map("successful_rag_responses")
+  intentClassification   Json?                        @map("intent_classification") @db.JsonB
+  createdAt              DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt             DateTime                     @default(now()) @map("last_used_at") @db.Timestamptz
+
+  @@index([usageCount, lastUsedAt], map: "idx_query_embeddings_usage")
+  @@map("query_embeddings")
+}
+
+// Message Feedback Table
+model MessageFeedback {
+  id                     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId              String       @map("message_id") @db.Uuid
+  userId                 String       @map("user_id") @db.Uuid
+  feedbackType           FeedbackType @map("feedback_type")
+  rating                 Int?         @db.SmallInt
+  comment                String?
+  improvementSuggestions Json?        @map("improvement_suggestions") @db.JsonB
+  helpfulSources         String[]     @map("helpful_sources") @db.Uuid
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId], map: "idx_message_feedback_message")
+  @@index([feedbackType, createdAt], map: "idx_message_feedback_type")
+  @@index([feedbackType, createdAt], map: "idx_message_feedback_type_period")
+  @@map("message_feedback")
+}
+
+// Conversation Feedback Table
+model ConversationFeedback {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  rating         Int      @db.SmallInt
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("conversation_feedback")
+}
+
+// GDPR Compliance Tables
+
+// User Consents Table
+model UserConsent {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  consentType   ConsentType @map("consent_type")
+  granted       Boolean
+  consentDate   DateTime    @map("consent_date") @db.Timestamptz
+  consentSource String?     @map("consent_source") @db.VarChar(100)
+  ipAddress     String?     @map("ip_address") @db.Inet
+  userAgent     String?     @map("user_agent")
+  legalBasis    LegalBasis? @map("legal_basis")
+  withdrawnDate DateTime?   @map("withdrawn_date") @db.Timestamptz
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_consents")
+}
+
+// Data Export Requests Table
+model DataExportRequest {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  requestType    DataRequestType @map("request_type")
+  status         RequestStatus   @default(PENDING)
+  requestedAt    DateTime        @default(now()) @map("requested_at") @db.Timestamptz
+  processedAt    DateTime?       @map("processed_at") @db.Timestamptz
+  processedBy    String?         @map("processed_by") @db.Uuid
+  exportFilePath String?         @map("export_file_path")
+  expiryDate     DateTime?       @map("expiry_date") @db.Timestamptz
+  notes          String?
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("data_export_requests")
+}
+
+// Audit Log Table
+model AuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String?  @map("resource_type") @db.VarChar(50)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  oldValues    Json?    @map("old_values") @db.JsonB
+  newValues    Json?    @map("new_values") @db.JsonB
+  ipAddress    String?  @map("ip_address") @db.Inet
+  userAgent    String?  @map("user_agent")
+  sessionId    String?  @map("session_id") @db.Uuid
+  details      Json     @default("{}") @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, action, createdAt], map: "idx_audit_logs_user_action")
+  @@index([resourceType, resourceId, createdAt], map: "idx_audit_logs_resource")
+  @@index([action, createdAt], map: "idx_audit_logs_action_time")
+  @@map("audit_logs")
+}

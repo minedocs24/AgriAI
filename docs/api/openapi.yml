@@ -1,0 +1,981 @@
+openapi: 3.0.3
+info:
+  title: AgriAI Chat Platform API
+  description: |
+    ## AgriAI Chat Platform - API Completa
+
+    Sistema di chat intelligente con RAG (Retrieval-Augmented Generation) per il settore agricolo.
+    
+    ### Funzionalità Principali
+    - **Chat intelligente** con AI e ricerca documentale
+    - **Gestione documenti** con upload, search e categorizzazione
+    - **Sistema di autenticazione** JWT completo
+    - **WebSocket** per comunicazione real-time
+    - **Rate limiting** e sicurezza enterprise
+    
+    ### Autenticazione
+    L'API utilizza JWT Bearer tokens. Includi il token nell'header:
+    ```
+    Authorization: Bearer <your_jwt_token>
+    ```
+    
+    ### Rate Limiting
+    - **Global**: 100 richieste/minuto per utente
+    - **Upload**: 10 file/minuto
+    - **Chat**: Rate limiting basato su utente
+    
+    ### Error Handling
+    Tutti gli errori seguono il formato standard:
+    ```json
+    {
+      "error": "error_type",
+      "message": "Human readable message",
+      "details": "Additional details if available"
+    }
+    ```
+  version: "1.0.0"
+  contact:
+    name: AgriAI Development Team
+    email: dev@agriai.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.agriai.com
+    description: Production server
+
+paths:
+  # Health Check
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check endpoint
+      description: Verifica lo stato del sistema e dei servizi
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Sistema operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [connected, disconnected]
+                      rag:
+                        type: string
+                        enum: [ready, unavailable]
+                      websocket:
+                        type: string
+                        enum: [active, inactive]
+                      documents:
+                        type: string
+                        enum: [ready, unavailable]
+                      queue:
+                        $ref: '#/components/schemas/QueueStats'
+        '503':
+          description: Servizio non disponibile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Chat Endpoints
+  /api/chat/query:
+    post:
+      tags:
+        - Chat
+      summary: Invia un messaggio alla chat AI
+      description: |
+        Invia un messaggio alla chat AI con supporto RAG per la ricerca documentale.
+        Il sistema analizza il messaggio, cerca documenti rilevanti e genera una risposta contestualizzata.
+      operationId: sendChatMessage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessage'
+            examples:
+              simple_question:
+                summary: Domanda semplice
+                value:
+                  content: "Come si coltivano i pomodori?"
+                  context:
+                    userType: "public"
+              expert_question:
+                summary: Domanda specialistica
+                value:
+                  content: "Quali sono le migliori pratiche per la rotazione delle colture in terreni argillosi?"
+                  context:
+                    userType: "member"
+                    farmType: "ortaggi"
+                    expertise: "intermedio"
+      responses:
+        '200':
+          description: Risposta generata con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Non autorizzato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Troppe richieste
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/chat/conversations:
+    get:
+      tags:
+        - Chat
+      summary: Lista conversazioni dell'utente
+      description: Recupera tutte le conversazioni dell'utente autenticato
+      operationId: getUserConversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Numero massimo di conversazioni da restituire
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Numero di conversazioni da saltare
+      responses:
+        '200':
+          description: Lista conversazioni
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+  /api/chat/feedback:
+    post:
+      tags:
+        - Chat
+      summary: Invia feedback su una risposta
+      description: Permette agli utenti di valutare la qualità delle risposte AI
+      operationId: submitChatFeedback
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatFeedback'
+      responses:
+        '200':
+          description: Feedback registrato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /api/chat/document-usage-stats:
+    get:
+      tags:
+        - Chat
+      summary: Statistiche utilizzo documenti
+      description: Statistiche sull'utilizzo dei documenti nelle risposte AI
+      operationId: getDocumentUsageStats
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Statistiche utilizzo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentUsageStats'
+
+  # Document Management Endpoints
+  /api/documents/upload:
+    post:
+      tags:
+        - Documents
+      summary: Upload multipli documenti
+      description: |
+        Upload di uno o più documenti (PDF, DOCX, TXT) con metadati.
+        I documenti vengono processati automaticamente per l'indicizzazione RAG.
+      operationId: uploadDocuments
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                metadata:
+                  type: string
+                  description: JSON con metadati documenti
+                  example: |
+                    {
+                      "title": "Guida coltivazione pomodori",
+                      "description": "Manuale completo per la coltivazione di pomodori",
+                      "categoryId": "550e8400-e29b-41d4-a716-446655440000",
+                      "author": "Dr. Mario Rossi",
+                      "accessLevel": "PUBLIC",
+                      "tags": ["pomodori", "ortaggi", "coltivazione"],
+                      "priority": "normal"
+                    }
+            encoding:
+              files:
+                contentType: application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/plain
+      responses:
+        '200':
+          description: Upload completato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadedFiles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentUploadResult'
+                  totalFiles:
+                    type: integer
+                  successCount:
+                    type: integer
+                  failedCount:
+                    type: integer
+        '400':
+          description: Errore nei dati di upload
+        '413':
+          description: File troppo grande (max 50MB)
+        '429':
+          description: Limite upload superato (10 file/minuto)
+
+  /api/documents:
+    get:
+      tags:
+        - Documents
+      summary: Lista documenti
+      description: Recupera la lista dei documenti con filtri e paginazione
+      operationId: getDocuments
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: categoryId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: accessLevel
+          schema:
+            type: string
+            enum: [PUBLIC, MEMBER, ADMIN]
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        - in: query
+          name: searchTerm
+          schema:
+            type: string
+            maxLength: 500
+      responses:
+        '200':
+          description: Lista documenti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+
+  /api/documents/search:
+    get:
+      tags:
+        - Documents
+      summary: Ricerca avanzata documenti
+      description: |
+        Ricerca full-text nei documenti con ranking semantico.
+        Supporta ricerca nel contenuto, metadati e tags.
+      operationId: searchDocuments
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 500
+          description: Query di ricerca
+        - in: query
+          name: categories
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - in: query
+          name: minScore
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.3
+          description: Score minimo di rilevanza (0-1)
+      responses:
+        '200':
+          description: Risultati ricerca
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+                  total:
+                    type: integer
+                  query:
+                    type: string
+                  executionTime:
+                    type: number
+                    description: Tempo di esecuzione in millisecondi
+
+  /api/documents/{id}:
+    get:
+      tags:
+        - Documents
+      summary: Dettagli documento
+      description: Recupera i dettagli completi di un documento
+      operationId: getDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dettagli documento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentDetails'
+        '404':
+          description: Documento non trovato
+
+    put:
+      tags:
+        - Documents
+      summary: Aggiorna metadati documento
+      description: Aggiorna i metadati di un documento esistente
+      operationId: updateDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentUpdate'
+      responses:
+        '200':
+          description: Documento aggiornato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+
+    delete:
+      tags:
+        - Documents
+      summary: Elimina documento
+      description: Soft delete di un documento (non elimina fisicamente il file)
+      operationId: deleteDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Documento eliminato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /api/documents/{id}/reprocess:
+    post:
+      tags:
+        - Documents
+      summary: Riprocessa documento
+      description: Riavvia il processo di elaborazione per un documento
+      operationId: reprocessDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Riprocessing avviato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+                  estimatedTime:
+                    type: integer
+                    description: Tempo stimato in secondi
+
+  /api/documents/stats:
+    get:
+      tags:
+        - Documents
+      summary: Statistiche sistema documenti
+      description: Statistiche generali del sistema di gestione documenti (solo admin)
+      operationId: getDocumentSystemStats
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Statistiche sistema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStats'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token. Esempio:
+        `Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+
+  schemas:
+    # Error Response
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Codice errore machine-readable
+        message:
+          type: string
+          description: Messaggio errore human-readable
+        details:
+          type: string
+          description: Dettagli aggiuntivi opzionali
+      required:
+        - error
+        - message
+
+    # Chat Schemas
+    ChatMessage:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Contenuto del messaggio
+        conversationId:
+          type: string
+          format: uuid
+          description: ID conversazione esistente (opzionale per nuova conversazione)
+        context:
+          type: object
+          properties:
+            userType:
+              type: string
+              enum: [public, member, admin]
+              default: public
+            location:
+              type: string
+              description: Localizzazione geografica
+            farmType:
+              type: string
+              description: Tipo di azienda agricola
+            expertise:
+              type: string
+              description: Livello di expertise dell'utente
+      required:
+        - content
+
+    ChatResponse:
+      type: object
+      properties:
+        userMessage:
+          $ref: '#/components/schemas/MessageInfo'
+        aiMessage:
+          allOf:
+            - $ref: '#/components/schemas/MessageInfo'
+            - type: object
+              properties:
+                confidence:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  description: Confidenza della risposta (0-1)
+                processingTime:
+                  type: number
+                  description: Tempo di elaborazione in millisecondi
+                sources:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SourceDocument'
+        conversation:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            messageCount:
+              type: integer
+      required:
+        - userMessage
+        - aiMessage
+        - conversation
+
+    MessageInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        sender:
+          type: string
+          enum: [user, ai]
+      required:
+        - id
+        - content
+        - timestamp
+        - sender
+
+    SourceDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        content:
+          type: string
+          description: Estratto rilevante del documento
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Score di rilevanza semantica
+        relevance:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Rilevanza per la query
+      required:
+        - id
+        - title
+        - content
+        - score
+        - relevance
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        messageCount:
+          type: integer
+        lastMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ChatFeedback:
+      type: object
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+        categories:
+          type: array
+          items:
+            type: string
+            enum: [accuracy, relevance, completeness, clarity, usefulness]
+      required:
+        - messageId
+        - rating
+
+    # Document Schemas
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        filename:
+          type: string
+        fileSize:
+          type: integer
+          description: Dimensione file in bytes
+        mimeType:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        author:
+          type: string
+        accessLevel:
+          type: string
+          enum: [PUBLIC, MEMBER, ADMIN]
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        tags:
+          type: array
+          items:
+            type: string
+        sourceUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        processedAt:
+          type: string
+          format: date-time
+        downloadCount:
+          type: integer
+        searchCount:
+          type: integer
+
+    DocumentDetails:
+      allOf:
+        - $ref: '#/components/schemas/Document'
+        - type: object
+          properties:
+            content:
+              type: string
+              description: Contenuto estratto del documento
+            extractedMetadata:
+              type: object
+              description: Metadati estratti automaticamente
+            processingErrors:
+              type: array
+              items:
+                type: string
+            category:
+              $ref: '#/components/schemas/DocumentCategory'
+
+    DocumentUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+        description:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        author:
+          type: string
+        accessLevel:
+          type: string
+          enum: [PUBLIC, MEMBER, ADMIN]
+        tags:
+          type: array
+          items:
+            type: string
+
+    DocumentUploadResult:
+      type: object
+      properties:
+        filename:
+          type: string
+        documentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [success, failed]
+        error:
+          type: string
+          description: Errore se status è failed
+        fileSize:
+          type: integer
+        jobId:
+          type: string
+          description: ID del job di processamento
+
+    DocumentCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        documentCount:
+          type: integer
+
+    SearchResult:
+      type: object
+      properties:
+        document:
+          $ref: '#/components/schemas/Document'
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        highlights:
+          type: array
+          items:
+            type: string
+          description: Estratti del testo con evidenziazioni
+        matchingFields:
+          type: array
+          items:
+            type: string
+          description: Campi in cui è stato trovato il match
+
+    # System Schemas
+    QueueStats:
+      type: object
+      properties:
+        pending:
+          type: integer
+        processing:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+
+    SystemStats:
+      type: object
+      properties:
+        totalDocuments:
+          type: integer
+        documentsPerStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        totalFileSize:
+          type: integer
+          description: Dimensione totale in bytes
+        avgProcessingTime:
+          type: number
+          description: Tempo medio processamento in secondi
+        storageUsage:
+          type: object
+          properties:
+            used:
+              type: integer
+            total:
+              type: integer
+            percentage:
+              type: number
+
+    DocumentUsageStats:
+      type: object
+      properties:
+        totalQueries:
+          type: integer
+        documentsUsed:
+          type: integer
+        avgSourcesPerResponse:
+          type: number
+        topDocuments:
+          type: array
+          items:
+            type: object
+            properties:
+              documentId:
+                type: string
+                format: uuid
+              title:
+                type: string
+              usageCount:
+                type: integer
+
+    PaginationInfo:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+        totalPages:
+          type: integer
+        totalItems:
+          type: integer
+        itemsPerPage:
+          type: integer
+        hasNextPage:
+          type: boolean
+        hasPreviousPage:
+          type: boolean
+
+tags:
+  - name: System
+    description: Endpoint di sistema e health check
+  - name: Chat
+    description: Endpoint per chat AI con RAG
+  - name: Documents
+    description: Gestione documenti e ricerca
+
+externalDocs:
+  description: Documentazione completa AgriAI
+  url: https://docs.agriai.com

@@ -1,0 +1,47 @@
+// Continuazione dello schema Prisma - Users e Tables aggiuntive
+
+// Users Table  
+model User {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String    @unique @db.VarChar(255)
+  passwordHash           String    @map("password_hash")
+  firstName              String    @map("first_name") @db.VarChar(100)
+  lastName               String    @map("last_name") @db.VarChar(100)
+  userType               UserType  @default(PUBLIC) @map("user_type")
+  organizationId         String?   @map("organization_id") @db.Uuid
+  emailVerified          Boolean   @default(false) @map("email_verified")
+  emailVerificationToken String?   @map("email_verification_token")
+  passwordResetToken     String?   @map("password_reset_token")
+  passwordResetExpires   DateTime? @map("password_reset_expires") @db.Timestamptz
+  lastLoginAt            DateTime? @map("last_login_at") @db.Timestamptz
+  lastActiveAt           DateTime? @map("last_active_at") @db.Timestamptz
+  loginCount             Int       @default(0) @map("login_count")
+  failedLoginAttempts    Int       @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime? @map("locked_until") @db.Timestamptz
+  profileImageUrl        String?   @map("profile_image_url")
+  bio                    String?
+  location               String?   @db.VarChar(255)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  preferences        UserPreferences?
+  sessions           UserSession[]
+  conversations      Conversation[]
+  documents          Document[]
+  messageFeedback    MessageFeedback[]
+  consents           UserConsent[]
+  dataExportRequests DataExportRequest[]
+  auditLogs          AuditLog[]
+
+  @@index([email], map: "idx_users_email", where: deletedAt == null)
+  @@index([userType, organizationId], map: "idx_users_type_org", where: deletedAt == null)
+  @@index([lastActiveAt], map: "idx_users_last_active", where: deletedAt == null)
+  @@index([organizationId], map: "idx_users_organization", where: deletedAt == null)
+  @@index([email], map: "idx_users_active_email", where: deletedAt == null && emailVerified == true)
+  @@map("users")
+}
+
+// ... resto dei modelli

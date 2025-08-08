@@ -1,0 +1,143 @@
+// ===== CORE MODELS =====
+
+// Organizations Table
+model Organization {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String            @db.VarChar(255)
+  slug                  String            @unique @db.VarChar(100)
+  description           String?
+  websiteUrl            String?           @map("website_url")
+  logoUrl               String?           @map("logo_url")
+  address               Json?             @db.JsonB
+  contactInfo           Json?             @map("contact_info") @db.JsonB
+  subscriptionTier      SubscriptionTier  @default(BASIC) @map("subscription_tier")
+  subscriptionExpiresAt DateTime?         @map("subscription_expires_at") @db.Timestamptz
+  maxUsers              Int               @default(10) @map("max_users")
+  maxDocuments          Int               @default(100) @map("max_documents")
+  settings              Json              @default("{}") @db.JsonB
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt             DateTime?         @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  users User[]
+
+  @@index([slug], map: "idx_organizations_slug", where: deletedAt == null)
+  @@index([subscriptionTier, subscriptionExpiresAt], map: "idx_organizations_subscription")
+  @@map("organizations")
+}
+
+// Users Table
+model User {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String    @unique @db.VarChar(255)
+  passwordHash           String    @map("password_hash")
+  firstName              String    @map("first_name") @db.VarChar(100)
+  lastName               String    @map("last_name") @db.VarChar(100)
+  userType               UserType  @default(PUBLIC) @map("user_type")
+  organizationId         String?   @map("organization_id") @db.Uuid
+  emailVerified          Boolean   @default(false) @map("email_verified")
+  emailVerificationToken String?   @map("email_verification_token")
+  passwordResetToken     String?   @map("password_reset_token")
+  passwordResetExpires   DateTime? @map("password_reset_expires") @db.Timestamptz
+  lastLoginAt            DateTime? @map("last_login_at") @db.Timestamptz
+  lastActiveAt           DateTime? @map("last_active_at") @db.Timestamptz
+  loginCount             Int       @default(0) @map("login_count")
+  failedLoginAttempts    Int       @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime? @map("locked_until") @db.Timestamptz
+  profileImageUrl        String?   @map("profile_image_url")
+  bio                    String?
+  location               String?   @db.VarChar(255)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  preferences        UserPreferences?
+  sessions           UserSession[]
+  conversations      Conversation[]
+  documents          Document[]
+  messageFeedback    MessageFeedback[]
+  consents           UserConsent[]
+  dataExportRequests DataExportRequest[]
+  auditLogs          AuditLog[]
+
+  @@index([email], map: "idx_users_email", where: deletedAt == null)
+  @@index([userType, organizationId], map: "idx_users_type_org", where: deletedAt == null)
+  @@index([lastActiveAt], map: "idx_users_last_active", where: deletedAt == null)
+  @@index([organizationId], map: "idx_users_organization", where: deletedAt == null)
+  @@index([email], map: "idx_users_active_email", where: deletedAt == null && emailVerified == true)
+  @@map("users")
+}
+
+// User Preferences Table
+model UserPreferences {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String   @unique @map("user_id") @db.Uuid
+  language                 String   @default("it") @db.VarChar(10)
+  timezone                 String   @default("Europe/Rome") @db.VarChar(50)
+  notifications            Json     @default("{\"email\": true, \"push\": true, \"sms\": false}") @db.JsonB
+  aiSettings               Json     @default("{\"response_length\": \"standard\", \"technical_level\": \"intermediate\"}") @map("ai_settings") @db.JsonB
+  uiPreferences            Json     @default("{\"theme\": \"light\", \"density\": \"comfortable\"}") @map("ui_preferences") @db.JsonB
+  privacySettings          Json     @default("{\"data_sharing\": false, \"analytics\": true}") @map("privacy_settings") @db.JsonB
+  communicationPreferences Json     @default("{\"newsletter\": true, \"updates\": true}") @map("communication_preferences") @db.JsonB
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// User Sessions Table
+model UserSession {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  sessionToken   String    @unique @map("session_token")
+  refreshToken   String?   @unique @map("refresh_token")
+  deviceInfo     Json?     @map("device_info") @db.JsonB
+  ipAddress      String?   @map("ip_address") @db.Inet
+  locationInfo   Json?     @map("location_info") @db.JsonB
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  lastAccessedAt DateTime  @default(now()) @map("last_accessed_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken], map: "idx_user_sessions_token", where: revokedAt == null)
+  @@index([userId, expiresAt], map: "idx_user_sessions_user", where: revokedAt == null)
+  @@index([expiresAt], map: "idx_user_sessions_cleanup", where: revokedAt == null)
+  @@index([sessionToken, userId], map: "idx_sessions_active", where: revokedAt == null)
+  @@map("user_sessions")
+}
+
+// Categories Table
+model Category {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String      @unique @db.VarChar(100)
+  slug        String      @unique @db.VarChar(100)
+  description String?
+  parentId    String?     @map("parent_id") @db.Uuid
+  icon        String?     @db.VarChar(50)
+  color       String?     @db.VarChar(7)
+  sortOrder   Int         @default(0) @map("sort_order")
+  isActive    Boolean     @default(true) @map("is_active")
+  accessLevel AccessLevel @default(PUBLIC) @map("access_level")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  parent    Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[]        @relation("CategoryHierarchy")
+  documents Document[]
+  keywords  CategoryKeyword[]
+
+  @@index([slug], map: "idx_categories_slug", where: isActive == true)
+  @@index([parentId, sortOrder], map: "idx_categories_parent")
+  @@index([accessLevel, isActive], map: "idx_categories_access")
+  @@map("categories")
+}

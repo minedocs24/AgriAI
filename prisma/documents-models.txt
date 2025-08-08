@@ -1,0 +1,71 @@
+// Document models per completare lo schema
+
+// Documents Table
+model Document {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String           @db.VarChar(500)
+  description       String?
+  contentType       DocumentType     @map("content_type")
+  categoryId        String           @map("category_id") @db.Uuid
+  uploadedById      String           @map("uploaded_by") @db.Uuid
+  author            String?          @db.VarChar(255)
+  sourceUrl         String?          @map("source_url")
+  filePath          String?          @map("file_path")
+  fileSizeBytes     BigInt?          @map("file_size_bytes")
+  fileMimeType      String?          @map("file_mime_type") @db.VarChar(100)
+  language          String           @default("it") @db.VarChar(10)
+  status            DocumentStatus   @default(DRAFT)
+  accessLevel       AccessLevel      @default(PUBLIC) @map("access_level")
+  version           Int              @default(1)
+  checksumMd5       String?          @map("checksum_md5") @db.VarChar(32)
+  extractionStatus  ExtractionStatus @default(PENDING) @map("extraction_status")
+  indexingStatus    IndexingStatus   @default(PENDING) @map("indexing_status")
+  contentExtracted  String?          @map("content_extracted")
+  pageCount         Int?             @map("page_count")
+  wordCount         Int?             @map("word_count")
+  metadata          Json             @default("{}") @db.JsonB
+  processingLogs    Json             @default("[]") @map("processing_logs") @db.JsonB
+  publishedAt       DateTime?        @map("published_at") @db.Timestamptz
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz
+
+  // Relations
+  category       Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  uploadedBy     User                @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  analysis       DocumentAnalysis?
+  embeddings     DocumentEmbedding[]
+  keywords       DocumentKeyword[]
+  messageSources MessageSource[]
+
+  @@index([categoryId, status, publishedAt], map: "idx_documents_category_status", where: deletedAt == null)
+  @@index([uploadedById, createdAt], map: "idx_documents_uploader", where: deletedAt == null)
+  @@index([status, extractionStatus, indexingStatus], map: "idx_documents_status")
+  @@index([accessLevel, status], map: "idx_documents_access", where: status == PUBLISHED && deletedAt == null)
+  @@index([categoryId, accessLevel, publishedAt], map: "idx_documents_category_access_published", where: status == PUBLISHED && deletedAt == null)
+  @@index([categoryId, publishedAt], map: "idx_documents_public_search", where: status == PUBLISHED && accessLevel == PUBLIC && deletedAt == null)
+  @@index([categoryId, status, createdAt, uploadedById], map: "idx_documents_analytics", where: deletedAt == null)
+  @@map("documents")
+}
+
+// Message Sources Table (RAG sources)
+model MessageSource {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String   @map("message_id") @db.Uuid
+  documentId      String   @map("document_id") @db.Uuid
+  relevantSection String?  @map("relevant_section")
+  confidence      Decimal  @db.Decimal(4, 3)
+  chunkIndex      Int?     @map("chunk_index")
+  similarityScore Decimal? @map("similarity_score") @db.Decimal(8, 7)
+  citationText    String?  @map("citation_text")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  message  Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@index([messageId], map: "idx_message_sources_message")
+  @@index([documentId, confidence], map: "idx_message_sources_document")
+  @@index([confidence], map: "idx_message_sources_confidence")
+  @@map("message_sources")
+}
