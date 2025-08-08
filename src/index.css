@@ -1,0 +1,497 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* AgriAI Design System - Configurazione moderna e completa design tokens
+Sistema di design moderno con palette agricola, spacing consistente, e microinterazioni avanzate.
+Tutti i colori sono in formato HSL per compatibilità con shadcn/ui e Tailwind CSS.
+*/
+
+@layer base {
+  :root {
+    /* === MODERN THEME COLORS - LIGHT === */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    
+    /* Colori principali - Tema agricolo moderno */
+    --primary: 122 47% 45%;           /* Verde agricoltura moderno */
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 25 38% 45%;          /* Terra moderna */
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    
+    --accent: 40 42% 52%;             /* Grano moderno */
+    --accent-foreground: 240 10% 3.9%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 122 47% 45%;              /* Ring = primary moderno */
+    
+    /* === MODERN BRAND COLORS - AGRICULTURA === */
+    /* Verde agricoltura - Palette moderna completa */
+    --brand-primary-50: 110 52% 96%;
+    --brand-primary-100: 110 48% 90%;
+    --brand-primary-200: 115 42% 80%;
+    --brand-primary-300: 118 40% 68%;
+    --brand-primary-400: 120 45% 55%;
+    --brand-primary-500: 122 47% 45%;   /* Primary moderno */
+    --brand-primary-600: 125 50% 38%;
+    --brand-primary-700: 128 55% 32%;
+    --brand-primary-800: 130 62% 26%;
+    --brand-primary-900: 132 70% 20%;
+    --brand-primary-950: 135 80% 12%;
+    
+    /* Terra - Palette secondaria moderna */
+    --brand-earth-50: 35 28% 96%;
+    --brand-earth-100: 35 32% 90%;
+    --brand-earth-200: 32 30% 80%;
+    --brand-earth-300: 30 28% 68%;
+    --brand-earth-400: 28 32% 55%;
+    --brand-earth-500: 25 38% 45%;      /* Secondary moderno */
+    --brand-earth-600: 22 42% 38%;
+    --brand-earth-700: 20 48% 32%;
+    --brand-earth-800: 18 55% 26%;
+    --brand-earth-900: 15 62% 20%;
+    
+    /* Grano - Palette accent moderna */
+    --brand-grain-50: 48 32% 96%;
+    --brand-grain-100: 48 36% 90%;
+    --brand-grain-200: 46 34% 80%;
+    --brand-grain-300: 44 30% 70%;
+    --brand-grain-400: 42 36% 60%;
+    --brand-grain-500: 40 42% 52%;      /* Accent moderno */
+    --brand-grain-600: 38 48% 44%;
+    --brand-grain-700: 36 54% 36%;
+    --brand-grain-800: 34 60% 28%;
+    --brand-grain-900: 32 68% 22%;
+    
+    /* Cielo - Palette info moderna */
+    --brand-sky-50: 200 42% 96%;
+    --brand-sky-100: 200 46% 90%;
+    --brand-sky-400: 200 56% 60%;
+    --brand-sky-500: 200 62% 50%;       /* Info moderno */
+    --brand-sky-600: 200 68% 42%;
+    
+    /* === MODERN SEMANTIC COLORS === */
+    --success: 122 47% 45%;             /* Verde crescita moderno */
+    --warning: 40 42% 52%;              /* Grano maturo moderno */
+    --error: 0 65% 55%;                 /* Rosso standard */
+    --info: 200 62% 50%;                /* Cielo sereno moderno */
+    
+    /* Colori specifici agricoli moderni */
+    --growth: 120 45% 55%;              /* Crescita piante moderna */
+    --harvest: 40 42% 52%;              /* Tempo raccolto moderno */
+    --soil: 25 38% 45%;                 /* Qualità suolo moderna */
+    --weather: 200 56% 60%;             /* Condizioni meteo moderne */
+    
+    /* === MODERN DESIGN TOKENS === */
+    --radius: 0.75rem;                  /* Border radius moderno */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 2rem;
+    
+    /* === MODERN SPACING SYSTEM === */
+    --spacing-xs: 0.25rem;              /* 4px */
+    --spacing-sm: 0.5rem;               /* 8px */
+    --spacing-md: 1rem;                 /* 16px */
+    --spacing-lg: 1.5rem;               /* 24px */
+    --spacing-xl: 2rem;                 /* 32px */
+    --spacing-2xl: 3rem;                /* 48px */
+    --spacing-3xl: 4rem;                /* 64px */
+    
+    /* === MODERN SHADOW SYSTEM === */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    
+    /* === AGRICULTURAL SHADOWS === */
+    --shadow-agricultural: 0 8px 25px -5px rgb(122 47% 45% / 0.15), 0 4px 10px -2px rgb(122 47% 45% / 0.1);
+    --shadow-earth: 0 8px 25px -5px rgb(25 38% 45% / 0.15), 0 4px 10px -2px rgb(25 38% 45% / 0.1);
+    --shadow-harvest: 0 8px 25px -5px rgb(40 42% 52% / 0.15), 0 4px 10px -2px rgb(40 42% 52% / 0.1);
+    --shadow-weather: 0 8px 25px -5px rgb(200 56% 60% / 0.15), 0 4px 10px -2px rgb(200 56% 60% / 0.1);
+    
+    /* === MODERN TYPOGRAPHY === */
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    --font-size-5xl: 3rem;
+    --font-size-6xl: 3.75rem;
+    
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+    
+    --letter-spacing-tight: -0.025em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.025em;
+    
+    /* === MODERN ANIMATIONS === */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* === MODERN SIDEBAR SYSTEM === */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-primary: 122 47% 45%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 3.8% 46.1%;
+    --sidebar-border: 240 5.9% 90%;
+    --sidebar-ring: 122 47% 45%;
+  }
+
+  .dark {
+    /* === MODERN THEME COLORS - DARK === */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* Colori principali - Tema agricolo dark moderno */
+    --primary: 122 47% 45%;           /* Verde agricoltura dark */
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 25 38% 45%;          /* Terra dark */
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    
+    --accent: 40 42% 52%;             /* Grano dark */
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 122 47% 45%;              /* Ring = primary dark */
+    
+    /* === MODERN BRAND COLORS - DARK === */
+    /* Verde agricoltura - Palette dark moderna */
+    --brand-primary-50: 122 47% 8%;
+    --brand-primary-100: 122 47% 12%;
+    --brand-primary-200: 122 47% 16%;
+    --brand-primary-300: 122 47% 24%;
+    --brand-primary-400: 122 47% 32%;
+    --brand-primary-500: 122 47% 45%;   /* Primary dark */
+    --brand-primary-600: 122 47% 55%;
+    --brand-primary-700: 122 47% 65%;
+    --brand-primary-800: 122 47% 75%;
+    --brand-primary-900: 122 47% 85%;
+    --brand-primary-950: 122 47% 95%;
+    
+    /* Terra - Palette dark moderna */
+    --brand-earth-50: 25 38% 8%;
+    --brand-earth-100: 25 38% 12%;
+    --brand-earth-200: 25 38% 16%;
+    --brand-earth-300: 25 38% 24%;
+    --brand-earth-400: 25 38% 32%;
+    --brand-earth-500: 25 38% 45%;      /* Secondary dark */
+    --brand-earth-600: 25 38% 55%;
+    --brand-earth-700: 25 38% 65%;
+    --brand-earth-800: 25 38% 75%;
+    --brand-earth-900: 25 38% 85%;
+    
+    /* Grano - Palette dark moderna */
+    --brand-grain-50: 40 42% 8%;
+    --brand-grain-100: 40 42% 12%;
+    --brand-grain-200: 40 42% 16%;
+    --brand-grain-300: 40 42% 24%;
+    --brand-grain-400: 40 42% 32%;
+    --brand-grain-500: 40 42% 52%;      /* Accent dark */
+    --brand-grain-600: 40 42% 60%;
+    --brand-grain-700: 40 42% 70%;
+    --brand-grain-800: 40 42% 80%;
+    --brand-grain-900: 40 42% 90%;
+    
+    /* Cielo - Palette dark moderna */
+    --brand-sky-50: 200 62% 8%;
+    --brand-sky-100: 200 62% 12%;
+    --brand-sky-400: 200 62% 32%;
+    --brand-sky-500: 200 62% 50%;       /* Info dark */
+    --brand-sky-600: 200 62% 60%;
+    
+    /* === MODERN SEMANTIC COLORS - DARK === */
+    --success: 122 47% 45%;             /* Verde crescita dark */
+    --warning: 40 42% 52%;              /* Grano maturo dark */
+    --error: 0 62.8% 30.6%;             /* Rosso dark */
+    --info: 200 62% 50%;                /* Cielo sereno dark */
+    
+    /* Colori specifici agricoli dark moderni */
+    --growth: 120 45% 55%;              /* Crescita piante dark */
+    --harvest: 40 42% 52%;              /* Tempo raccolto dark */
+    --soil: 25 38% 45%;                 /* Qualità suolo dark */
+    --weather: 200 56% 60%;             /* Condizioni meteo dark */
+    
+    /* === MODERN SIDEBAR SYSTEM - DARK === */
+    --sidebar-background: 240 10% 3.9%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 122 47% 45%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 5% 64.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 122 47% 45%;
+  }
+
+  /* === MODERN BASE STYLES === */
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color var(--transition-normal), color var(--transition-normal);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: var(--line-height-tight);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  /* === MODERN UTILITY CLASSES === */
+  .theme-transition {
+    transition: all var(--transition-normal);
+  }
+
+  .text-growth { color: hsl(var(--growth)); }
+  .text-harvest { color: hsl(var(--harvest)); }
+  .text-soil { color: hsl(var(--soil)); }
+  .text-weather { color: hsl(var(--weather)); }
+
+  .bg-growth { background-color: hsl(var(--growth)); }
+  .bg-harvest { background-color: hsl(var(--harvest)); }
+  .bg-soil { background-color: hsl(var(--soil)); }
+  .bg-weather { background-color: hsl(var(--weather)); }
+
+  .border-growth { border-color: hsl(var(--growth)); }
+  .border-harvest { border-color: hsl(var(--harvest)); }
+  .border-soil { border-color: hsl(var(--soil)); }
+  .border-weather { border-color: hsl(var(--weather)); }
+
+  /* === MODERN SHADOW UTILITIES === */
+  .shadow-agricultural {
+    box-shadow: var(--shadow-agricultural);
+  }
+
+  .shadow-earth {
+    box-shadow: var(--shadow-earth);
+  }
+
+  .shadow-harvest {
+    box-shadow: var(--shadow-harvest);
+  }
+
+  .shadow-weather {
+    box-shadow: var(--shadow-weather);
+  }
+
+  /* === MODERN LAYOUT UTILITIES === */
+  .container-responsive {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
+  }
+
+  @media (min-width: 640px) {
+    .container-responsive {
+      max-width: 640px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .container-responsive {
+      max-width: 768px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-responsive {
+      max-width: 1024px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container-responsive {
+      max-width: 1280px;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .container-responsive {
+      max-width: 1536px;
+    }
+  }
+
+  /* === MODERN CARD UTILITIES === */
+  .card-agricultural {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-agricultural);
+    transition: all var(--transition-normal);
+  }
+
+  .card-earth {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-earth);
+    transition: all var(--transition-normal);
+  }
+
+  /* === MODERN STATUS INDICATORS === */
+  .status-optimal {
+    background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(var(--growth)) 100%);
+    color: white;
+  }
+
+  .status-warning {
+    background: linear-gradient(135deg, hsl(var(--warning)) 0%, hsl(var(--harvest)) 100%);
+    color: white;
+  }
+
+  .status-attention {
+    background: linear-gradient(135deg, hsl(var(--error)) 0%, hsl(var(--destructive)) 100%);
+    color: white;
+  }
+
+  .status-info {
+    background: linear-gradient(135deg, hsl(var(--info)) 0%, hsl(var(--weather)) 100%);
+    color: white;
+  }
+
+  /* === MODERN TYPOGRAPHY UTILITIES === */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* === MODERN ACCESSIBILITY === */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* === MODERN SCROLLBAR === */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground)) transparent;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* === MODERN ANIMATIONS === */
+  .animate-fade-in {
+    animation: fadeIn var(--transition-normal) ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp var(--transition-normal) ease-out;
+  }
+
+  .animate-agricultural {
+    animation: agriculturalPulse 2s ease-in-out infinite;
+  }
+
+  /* === MODERN KEYFRAMES === */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes agriculturalPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.8;
+    }
+  }
+
+  /* === MODERN PRINT STYLES === */
+  @media print {
+    .print-hidden {
+      display: none !important;
+    }
+
+    .print-visible {
+      display: block !important;
+    }
+  }
+}
